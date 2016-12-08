@@ -20,6 +20,8 @@ metadata {
 	definition (name: "Lampy Lamp", namespace: "astoltz", author: "Andrew M. Stoltz") {
 		capability "Light"
         capability "Refresh"
+        capability "Alarm"
+        capability "Switch"
 
 		attribute "lampState", "string"
 		attribute "blueJayLEDStatus", "string"
@@ -124,18 +126,34 @@ def parse(String description) {
     if (result.containsKey("lamp_status")) {
     	sendEvent(name: "switch", value: result.lamp_status ? "on" : "off")
 	}
-    if (result.containsKey("lamp_state")) {
-    	sendEvent(name: "lampState", value: result.lamp_state)
-	}
+    //if (result.containsKey("lamp_state")) {
+    //	sendEvent(name: "lampState", value: result.lamp_state)
+	//}
     if (result.containsKey("blue_jay_led_status")) {
     	sendEvent(name: "blueJayLEDStatus", value: result.blue_jay_led_status ? "on" : "off")
 	}
     if (result.containsKey("blue_jay_led_state")) {
     	sendEvent(name: "blueJayLEDState", value: result.blue_jay_led_state)
 	}
-    if (result.containsKey("blue_jay_tweeting")) {
-    	sendEvent(name: "blueJayTweeting", value: result.blue_jay_tweeting ? "on" : "off")
+
+    if (result.containsKey("blue_jay_tweeting") || result.containsKey("lamp_state")) {
+    	def lampState = result.containsKey("lamp_state") ? result.lamp_state : "off";
+        def blueJayTweeting = result.containsKey("blue_jay_tweeting") ? result.blue_jay_tweeting : false;
+
+    	if (result.blue_jay_tweeting && lampState == "flashing") {
+        	sendEvent(name: "alarm", value: "both")
+        } else if (result.blue_jay_tweeting) {
+        	sendEvent(name: "alarm", value: "siren")
+        } else if (lampState == "flashing") {
+        	sendEvent(name: "alarm", value: "strobe")
+        } else {
+	        sendEvent(name: "alarm", value: "off")
+        }
+    
+		sendEvent(name: "lampState", value: result.lamp_state)
+        sendEvent(name: "blueJayTweeting", value: result.blue_jay_tweeting ? "on" : "off")
 	}
+    
     if (result.containsKey("cardinal_led_status")) {
     	sendEvent(name: "cardinalLEDStatus", value: result.cardinal_led_status ? "on" : "off")
 	}
@@ -191,6 +209,18 @@ def on() {
         path: "/lamp/on"
     )
     return result
+}
+
+def both() {
+	return [flash(), blueJayTweet(), cardinalTweet()];
+}
+
+def siren() {
+	return blueJayTweet();
+}
+
+def strobe() {
+	return flash();
 }
 
 def flash() {
@@ -292,3 +322,5 @@ def refresh() {
     )
     return result
 }
+
+
